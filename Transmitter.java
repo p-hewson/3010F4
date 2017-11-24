@@ -17,7 +17,7 @@ public class Transmitter {
 	private final static int PACKETSIZE = 100;
 	private String url;
 	InetAddress host;
-	private int port = 1021; // this value will change, but I am using this value for now
+	private int port; // this value will change, but I am using this value for now
 	private DatagramSocket socket = null;
 	private Connection connect = null;
 	private java.sql.Statement statement = null;
@@ -30,10 +30,15 @@ public class Transmitter {
 	}
 
 	public Transmitter() {
+		this(1021);
+	}
+
+	public Transmitter(int port) {
 		// will nead to find a way to not hard code this
 		String website = "null.com";
 		try {
 			host = InetAddress.getByName("127.0.0.1");
+			this.port = port;
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -41,6 +46,9 @@ public class Transmitter {
 		ArrayList<Data> dataList =recieve() ;
 		transmit(dataList,website);
 	}
+	
+	
+	
 
 	public ArrayList<Data> recieve() {
 
@@ -91,24 +99,28 @@ public class Transmitter {
 	// Arduino sends and trys to put them into
 	// a data structure
 	public ArrayList<Data> CollectData(int i, DatagramSocket socket, int other_port) throws IOException {
+			// initilize the variables
 		int id = 0;
 		int tilt = 0;
 		int temp = 0;
 		long time = 0;
+
 		ArrayList<Data> dataList = new ArrayList<Data>();
-		byte[] b = new byte[1];
-		byte[] bFalse = new byte[1];
-		b[0] = 1;
-		bFalse[0] = 0;
-		DatagramPacket ack = new DatagramPacket(b, 1, host, other_port);
-		DatagramPacket bad = new DatagramPacket(b, 1, host, other_port);
-		DatagramPacket pack = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
-		System.out.println("Before send");
+		// set up the dataPackets 1 for acking, one for nAcking, and one for recieving
+		ByteBuffer ba = ByteBuffer.allocate(4);
+		ba.putInt(1);
+		byte[] b = ba.array();
+		ba =ByteBuffer.allocate(4);
+		ba.putInt(0);
+		byte[] bFalse = ba.array();
+		DatagramPacket ack = new DatagramPacket(b, b.length, host, other_port);
+		DatagramPacket bad = new DatagramPacket(bFalse, bFalse.length, host, other_port);
+		DatagramPacket pack = new DatagramPacket(new byte[16], 16);
+
 		socket.send(ack);
-		System.out.println("before the other sends");
 		// the other program sends an int[] with id time temp and tilt in that order
 		for (int l = 0; l < i; l++) {
-			DatagramPacket p = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
+			DatagramPacket p = new DatagramPacket(new byte[16], 16);
 			socket.receive(p);
 			byte[] byteArray = p.getData();
 
@@ -121,19 +133,19 @@ public class Transmitter {
 				temp = dataSet[2];
 				tilt = dataSet[3];
 				if (id < 0) {
-
+					System.out.println("id: "+id);
 					good = false;
 				}
-				time = dataSet[1];
 				if (time < 0) {
+					System.out.println("time:" +time);
 					good = false;
 				}
-				temp = dataSet[3];
-				if (temp < 0 && temp > 32768) {
+				if (temp < 0 || temp > 32768) {
+					System.out.println("temp: "+temp);
 					good = false;
 				}
-				tilt = dataSet[4];
-				if (tilt < 0 && tilt > 32768) {
+				if (tilt < 0 || tilt > 32768) {
+					System.out.println("tilt: "+tilt);
 					good = false;
 				}
 
@@ -143,6 +155,10 @@ public class Transmitter {
 			if(good) {
 				Data d = new Data(id,time,temp,tilt);
 				dataList.add(d);
+				socket.send(ack);
+			}
+			else {
+				socket.send(bad);
 			}
 		}
 		socket.close();
