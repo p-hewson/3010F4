@@ -3,14 +3,26 @@ package transmitter;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 
-public class Transmitter  {
+import com.mysql.cj.api.jdbc.Statement;
+import com.mysql.cj.jdbc.PreparedStatement;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+
+public class Transmitter {
 	private final static int PACKETSIZE = 100;
 	private String url;
-	InetAddress host ;
-	private int port = 1021; // this value will change, but I am using this value for now
+	InetAddress host;
+	private int port; // this value will change, but I am using this value for now
 	private DatagramSocket socket = null;
+	private Connection connect = null;
+	private java.sql.Statement statement = null;
+	private PreparedStatement preparedStatement;
+	private ResultSet resultSet = null;
 	
 	public static void main(String[] args0) {
 		Transmitter transmitter = new Transmitter();
@@ -18,57 +30,63 @@ public class Transmitter  {
 	}
 
 	public Transmitter() {
+		this(1021);
+	}
+
+	public Transmitter(int port) {
+		// will nead to find a way to not hard code this
+		String website = "null.com";
 		try {
-			host = InetAddress.getByName("127.0.0.1") ;
+			host = InetAddress.getByName("127.0.0.1");
+			this.port = port;
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		recieve();
-
+		ArrayList<Data> dataList =recieve() ;
+		transmit(dataList,website);
 	}
-
 	
+	
+	
+
 	public ArrayList<Data> recieve() {
-		
+
 		ArrayList<Data> dataList = new ArrayList<Data>();
-		
-			try {
 
-				socket = new DatagramSocket(port);
+		try {
 
-			} catch (SocketException e) {
+			socket = new DatagramSocket(port);
+
+		} catch (SocketException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			}
-		
-		
+		}
+
 		boolean done = false;
 
-			DatagramPacket packet = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
+		DatagramPacket packet = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
+		try {
+
+			socket.receive(packet);
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		ByteBuffer wrap = ByteBuffer.wrap(packet.getData()); // takes the Byte[] and makes an int out of it
+		int num = wrap.getInt();
+		System.out.println("got " + num);
+		if (num <= 0) {
+			byte[] b = new byte[1];
+			b[0] = 0;
+		} else {
 			try {
-				
-				socket.receive(packet);
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				dataList = CollectData(num, socket, packet.getPort());
+			} catch (Exception e) {
+
 			}
-			ByteBuffer wrap = ByteBuffer.wrap(packet.getData()); // takes the Byte[] and makes an int out of it
-			int num = wrap.getInt();
-			System.out.println("got "+ num);
-			if(num <=0 ) {
-				byte[] b = new byte[1];
-				b[0]= 0;
-			}else {
-				try {
-			dataList = CollectData(num,socket,packet.getPort());	
-				}catch(Exception e) {
-					
-				}
-			}
-			
-		
+		}
 
 		return null;
 	}
@@ -80,125 +98,80 @@ public class Transmitter  {
 	// CollectData loops i times and takes in the number of Data Packets that the
 	// Arduino sends and trys to put them into
 	// a data structure
-	public ArrayList<Data> CollectData(int i, DatagramSocket socket,int other_port) throws IOException {
-		String end;
+	public ArrayList<Data> CollectData(int i, DatagramSocket socket, int other_port) throws IOException {
+			// initilize the variables
 		int id = 0;
 		int tilt = 0;
 		int temp = 0;
 		long time = 0;
+
 		ArrayList<Data> dataList = new ArrayList<Data>();
-		byte[] b = new byte[1];
-		byte[] bFalse = new byte[1];
-		b[0] = 1;
-		bFalse[0] = 0;
-		DatagramPacket ack = new DatagramPacket(b, 1,host,other_port);
-		DatagramPacket bad = new DatagramPacket(b, 1,host,other_port);
-		DatagramPacket pack = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
-		System.out.println("Before send");
+		// set up the dataPackets 1 for acking, one for nAcking, and one for recieving
+		ByteBuffer ba = ByteBuffer.allocate(4);
+		ba.putInt(1);
+		byte[] b = ba.array();
+		ba =ByteBuffer.allocate(4);
+		ba.putInt(0);
+		byte[] bFalse = ba.array();
+		DatagramPacket ack = new DatagramPacket(b, b.length, host, other_port);
+		DatagramPacket bad = new DatagramPacket(bFalse, bFalse.length, host, other_port);
+		DatagramPacket pack = new DatagramPacket(new byte[16], 16);
+
 		socket.send(ack);
-		System.out.println("before the other sends");
+		// the other program sends an int[] with id time temp and tilt in that order
 		for (int l = 0; l < i; l++) {
-			// if good is false then the data collect on this loop is ignored because one of
-			// the numbers is a wrong value
+			DatagramPacket p = new DatagramPacket(new byte[16], 16);
+			socket.receive(p);
+			byte[] byteArray = p.getData();
+
+			int[] dataSet = new int[byteArray.length / 4];
+			ByteBuffer.wrap(byteArray).asIntBuffer().get(dataSet);
 			boolean good = true;
-			// gets the number from the receiver program
-			// checks to make sure that the data taken in is valid and within a reasonable
-			// range
-			// shouldn't be a problem becasue both programs are on the same machine, but
-			// better safe then sorry
-			
-			//creates an exception that can be thrown and caught if bad things happen
-			Exception wrong = new Exception();
-			try {
-				// getting and checking id
-				id = getNumber(socket);
+			if (dataSet.length == 4) {
+				id = dataSet[0];
+				time = dataSet[1];
+				temp = dataSet[2];
+				tilt = dataSet[3];
+				if (id < 0) {
+					System.out.println("id: "+id);
+					good = false;
+				}
+				if (time < 0) {
+					System.out.println("time:" +time);
+					good = false;
+				}
+				if (temp < 0 || temp > 32768) {
+					System.out.println("temp: "+temp);
+					good = false;
+				}
+				if (tilt < 0 || tilt > 32768) {
+					System.out.println("tilt: "+tilt);
+					good = false;
+				}
 
-				if (id <= 0) {
-					socket.send(bad);
-					good = false;
-					throw wrong;
-				} else if(id==(Integer)null){
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				}else {
-				
-					socket.send(ack);
-				}
-				// getting and checking the timestamp
-				time = getNumber(socket);
-				if (time <= 0) {
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				} else if(time==(Integer)null){
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				}else {
-					socket.send(ack);
-				}
-				// getting and checking the temperature value
-				temp = getNumber(socket);
-				if (temp <= 0||temp>65536) {
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				} else if(id==(Integer)null){
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				}else {
-					socket.send(ack);
-				}
-				// getting and checking the tilt value
-				tilt = getNumber(socket);
-				if (tilt <= 0||temp>65536) {
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				} else if(id==(Integer)null){
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				}else {
-					socket.send(ack);
-				}
-				DatagramPacket p = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
-				socket.receive(p);
-				end = p.toString();
-				if(end.equals("end")) {
-					socket.send(ack);
-				}else {
-					good = false;
-					socket.send(bad);
-					throw wrong;
-				}
-			} catch (Exception e) {
-				// TODO need to figure out how to deal with this kind of error
-				System.out.println("bad");
+			}else {
+				good = false;
 			}
-
-			// if
-
-			if (good) {
-				Data d = new Data(id, time, temp, tilt);
+			if(good) {
+				Data d = new Data(id,time,temp,tilt);
 				dataList.add(d);
-			} else {
-				l--;
+				socket.send(ack);
 			}
-
+			else {
+				socket.send(bad);
+			}
 		}
 		socket.close();
 		return dataList;
+
 	}
 
 	public int getNumber(DatagramSocket s) throws Exception {
 		int num;
 		DatagramPacket pack = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
 		s.receive(pack);
-		if(pack.getData().toString().equals("end")) {
-			return (Integer)null;
+		if (pack.getData().toString().equals("end")) {
+			return (Integer) null;
 		}
 		byte[] number = pack.getData();
 		ByteBuffer wrapped = ByteBuffer.wrap(number);
@@ -206,9 +179,28 @@ public class Transmitter  {
 		return num;
 	}
 
-	public void transmit(ArrayList<Data> dataList) {
-			
-	}
+	public void transmit(ArrayList<Data> dataList, String website) {
+		try {
+			Class.forName("com.mysql.jdbc.Driver");
 
+			connect = DriverManager.getConnection("jdbc:mysql://" + website);
+
+			statement = connect.createStatement();
+			for (Data data : dataList) {
+				double tilt = data.getTilt();
+				double temp = data.getTemp();
+				int id = data.getId();
+				int time = data.getId();
+
+				String stmt = "INSERT INTO collected_data VALUES (" + id + " , " + time + "," + temp + " , " + tilt
+						+ " );";
+				java.sql.PreparedStatement preparedStmt = connect.prepareStatement(stmt);
+				preparedStmt.execute();
+			}
+
+		} catch (Exception e) {
+
+		}
+	}
 
 }
