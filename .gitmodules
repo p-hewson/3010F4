@@ -1,0 +1,6 @@
+[submodule "3010F4_Sensor"]
+	path = 3010F4_Sensor
+	url = https://github.com/ITHarvey/3010F4_Sensor
+[submodule "3010F4_Translator"]
+	path = 3010F4_Translator
+	url = https://github.com/ITHarvey/3010F4_Translator
