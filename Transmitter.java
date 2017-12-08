@@ -1,4 +1,4 @@
-package transmitter;
+package connecting;
 
 import java.io.IOException;
 import java.net.*;
@@ -7,6 +7,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 
+import javax.xml.crypto.Data;
+
 import com.mysql.cj.api.jdbc.Statement;
 import com.mysql.cj.jdbc.PreparedStatement;
 
@@ -14,179 +16,47 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 
 public class Transmitter {
-	private final static int PACKETSIZE = 100;
-	private String url;
-	InetAddress host;
-	private int port; // this value will change, but I am using this value for now
-	private DatagramSocket socket = null;
 	private Connection connect = null;
 	private java.sql.Statement statement = null;
 	private PreparedStatement preparedStatement;
 	private ResultSet resultSet = null;
 	
-	public static void main(String[] args0) {
-		Transmitter transmitter = new Transmitter();
 
-	}
-
-	public Transmitter() {
-		this(1021);
-	}
-
-	public Transmitter(int port) {
-		// will nead to find a way to not hard code this
-		String website = "null.com";
-		try {
-			host = InetAddress.getByName("127.0.0.1");
-			this.port = port;
-		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		ArrayList<Data> dataList =recieve() ;
-		transmit(dataList,website);
+	public Transmitter(ArrayList<int[]> dataList) throws DataException{
+				ArrayList<Data> listData = new ArrayList<Data>();
+				
 	}
 	
-	
-	
-
-	public ArrayList<Data> recieve() {
-
-		ArrayList<Data> dataList = new ArrayList<Data>();
-
-		try {
-
-			socket = new DatagramSocket(port);
-
-		} catch (SocketException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		boolean done = false;
-
-		DatagramPacket packet = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
-		try {
-
-			socket.receive(packet);
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		ByteBuffer wrap = ByteBuffer.wrap(packet.getData()); // takes the Byte[] and makes an int out of it
-		int num = wrap.getInt();
-		System.out.println("got " + num);
-		if (num <= 0) {
-			byte[] b = new byte[1];
-			b[0] = 0;
-		} else {
-			try {
-				dataList = CollectData(num, socket, packet.getPort());
-			} catch (Exception e) {
-
-			}
-		}
-
-		return null;
-	}
-
-	public void Transmit() {
-
-	}
-
 	// CollectData loops i times and takes in the number of Data Packets that the
 	// Arduino sends and trys to put them into
 	// a data structure
-	public ArrayList<Data> CollectData(int i, DatagramSocket socket, int other_port) throws IOException {
-			// initilize the variables
-		int id = 0;
-		int tilt = 0;
-		int temp = 0;
-		long time = 0;
 
-		ArrayList<Data> dataList = new ArrayList<Data>();
-		// set up the dataPackets 1 for acking, one for nAcking, and one for recieving
-		ByteBuffer ba = ByteBuffer.allocate(4);
-		ba.putInt(1);
-		byte[] b = ba.array();
-		ba =ByteBuffer.allocate(4);
-		ba.putInt(0);
-		byte[] bFalse = ba.array();
-		DatagramPacket ack = new DatagramPacket(b, b.length, host, other_port);
-		DatagramPacket bad = new DatagramPacket(bFalse, bFalse.length, host, other_port);
-		DatagramPacket pack = new DatagramPacket(new byte[16], 16);
-
-		socket.send(ack);
-		// the other program sends an int[] with id time temp and tilt in that order
-		for (int l = 0; l < i; l++) {
-			DatagramPacket p = new DatagramPacket(new byte[16], 16);
-			socket.receive(p);
-			byte[] byteArray = p.getData();
-
-			int[] dataSet = new int[byteArray.length / 4];
-			ByteBuffer.wrap(byteArray).asIntBuffer().get(dataSet);
-			boolean good = true;
-			if (dataSet.length == 4) {
-				id = dataSet[0];
-				time = dataSet[1];
-				temp = dataSet[2];
-				tilt = dataSet[3];
-				if (id < 0) {
-					System.out.println("id: "+id);
-					good = false;
-				}
-				if (time < 0) {
-					System.out.println("time:" +time);
-					good = false;
-				}
-				if (temp < 0 || temp > 32768) {
-					System.out.println("temp: "+temp);
-					good = false;
-				}
-				if (tilt < 0 || tilt > 32768) {
-					System.out.println("tilt: "+tilt);
-					good = false;
-				}
-
-			}else {
-				good = false;
-			}
-			if(good) {
-				Data d = new Data(id,time,temp,tilt);
+	public ArrayList<Set> convert(ArrayList<int[]> rawList)throws DataException {
+		ArrayList<Set> dataList = new ArrayList<Set>();
+		for(int i = 0;i<rawList.size();i++) {
+			int time = rawList.get(i)[0];
+			int temp = rawList.get(i)[1];
+			int tilt = rawList.get(i)[2];
+			int id = 2; //TODO still need to get this but for now the only Arduino we have has this id
+			Set d = new Set(id,time,temp,tilt);
+			if(d.isGood()) {
 				dataList.add(d);
-				socket.send(ack);
-			}
-			else {
-				socket.send(bad);
+			}else {
+				DataException de = new DataException((Set) d);
+				throw(de);
 			}
 		}
-		socket.close();
 		return dataList;
-
 	}
-
-	public int getNumber(DatagramSocket s) throws Exception {
-		int num;
-		DatagramPacket pack = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
-		s.receive(pack);
-		if (pack.getData().toString().equals("end")) {
-			return (Integer) null;
-		}
-		byte[] number = pack.getData();
-		ByteBuffer wrapped = ByteBuffer.wrap(number);
-		num = wrapped.getInt();
-		return num;
-	}
-
-	public void transmit(ArrayList<Data> dataList, String website) {
+	
+	public void transmit(ArrayList<Set> dataList, String website) {
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 
 			connect = DriverManager.getConnection("jdbc:mysql://" + website);
 
 			statement = connect.createStatement();
-			for (Data data : dataList) {
+			for (Set data : dataList) {
 				double tilt = data.getTilt();
 				double temp = data.getTemp();
 				int id = data.getId();

@@ -31,9 +31,8 @@ import gnu.io.NoSuchPortException;
 import gnu.io.PortInUseException;
 import gnu.io.SerialPort;
 import gnu.io.UnsupportedCommOperationException;
-import transmitter.Transmitter;
 
-public class Reciever implements Runnable {
+public class Reciever {
 	// creating Constants
 	private byte DATA = 0x01; // Data packet (only from sensor to base)
 	private byte STAT = 0x02; // Status packet
@@ -47,7 +46,8 @@ public class Reciever implements Runnable {
 	private int other_port = 1020;
 	private InetAddress local_host;
 
-	public static void main() {
+	public static void main(String[] args
+			) {
 		Reciever r = new Reciever();
 	}
 
@@ -235,59 +235,11 @@ public class Reciever implements Runnable {
 	}
 
 	public void sendToTransmitter(ArrayList<int[]> dataList) {
-
-		try {
-			// used to read the acks and nacks of the Transmitter
-			int messageBack;
-			DatagramPacket receiver = new DatagramPacket(new byte[4], 4);
-			local_host = InetAddress.getByName("127.0.0.1");
-			Thread t = new Thread(this);
-			t.start();
-			DatagramSocket socket = new DatagramSocket(port);
-			byte[] numSets = new byte[4];
-			Thread.sleep(100);// lets the other program catch up
-			ByteBuffer bb = ByteBuffer.allocate(4);
-			bb.putInt(dataList.size());
-			numSets = bb.array();
-			DatagramPacket sets = new DatagramPacket(numSets, 4, local_host, other_port);
-			boolean good = false;
-
-			while (!good) {
-				socket.send(sets);
-				socket.receive(receiver);
-				bb = ByteBuffer.wrap(receiver.getData());
-				messageBack = bb.getInt();
-				if (messageBack == 1) {
-					good = true;
-				}
+			try {
+				Transmitter t = new Transmitter(dataList);
+			} catch (DataException e) {
+				e.printStackTrace();
 			}
-			int length = dataList.size();
-			for (int i = 0; i < length; i++) {
-				bb = ByteBuffer.allocate(length * 4);
-				IntBuffer ib = bb.asIntBuffer();
-				for (int num : dataList.get(i))
-					ib.put(num);
-
-				byte[] bytes = bb.array();
-				DatagramPacket p = new DatagramPacket(bytes, bytes.length, local_host, other_port);
-				socket.send(p);
-				socket.receive(receiver);
-
-			}
-
-		} catch (SocketException e) {
-		
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-		
-			e.printStackTrace();
-		} catch (UnknownHostException e) {
-			
-			e.printStackTrace();
-		} catch (IOException e) {
-			
-			e.printStackTrace();
-		}
 
 	}
 	
@@ -299,10 +251,5 @@ public class Reciever implements Runnable {
 		System.out.println("id: "+status[2]+"\n");
 	}
 
-	@Override
-	public void run() {
-		
-		Transmitter t = new Transmitter(other_port);
-	}
 
 }
