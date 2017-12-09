@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/textInfoID"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:maxLength="30"
+        android:text="ID"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toStartOf="@+id/textName"
+        app:layout_constraintHorizontal_chainStyle="spread_inside"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/buttonToData" />
+
+    <TextView
+        android:id="@+id/textName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Name"
+        app:layout_constraintEnd_toStartOf="@+id/textLocation"
+        app:layout_constraintStart_toEndOf="@+id/textInfoID"
+        app:layout_constraintTop_toBottomOf="@+id/buttonToData" />
+
+    <TextView
+        android:id="@+id/textLocation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxLength="30"
+        android:text="location"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toStartOf="@+id/textInterval"
+        app:layout_constraintStart_toEndOf="@+id/textName"
+        app:layout_constraintTop_toBottomOf="@+id/buttonToData" />
+
+    <TextView
+        android:id="@+id/textInterval"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="Time Interval"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/textLocation"
+        app:layout_constraintTop_toBottomOf="@+id/buttonToData" />
+
+    <ListView
+        android:id="@+id/infoView"
+        android:layout_width="match_parent"
+        android:layout_height="425dp"
+        android:layout_centerHorizontal="true"
+        android:layout_marginEnd="8dp"
+        android:layout_marginStart="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textName" />
+
+    <Button
+        android:id="@+id/buttonToData"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="8dp"
+        android:text="Data"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</android.support.constraint.ConstraintLayout>
