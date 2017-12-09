@@ -47,3 +47,13 @@ table info
 | time_interval | int(1)      | NO   |     | NULL    |       |
 
 +---------------+-------------+------+-----+---------+-------+
+
+Application Setup:
+1.	Start a new project
+2.	Add .java files to app>java>com.example.***.***
+3.	Add .xml files to app>res>layout
+4.	Change database credentials (see figure 10)
+5.	Right click app in file view, add new module, and select the mysql connector folder (on github)
+6.	Add this line to the gradle dependencies:
+compile project(':mysql-connector-java-3.0.17-ga-bin')
+
