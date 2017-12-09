@@ -41,13 +41,9 @@ public class Reciever {
 	private byte CINT = 0x10; // Change interval (only from base to sensor)
 	int[] adresses;
 	
-	
-	private int port = 1010;
-	private int other_port = 1020;
-	private InetAddress local_host;
 
-	public static void main(String[] args
-			) {
+
+	public static void main(String[] args) {
 		Reciever r = new Reciever();
 	}
 
@@ -58,7 +54,7 @@ public class Reciever {
 			// setting things up to communicate with the RFArduino
 			CommPortIdentifier portIdentifier = CommPortIdentifier.getPortIdentifier("/dev/ttyUSB0");
 
-			CommPort commPort = portIdentifier.open(this.getClass().toString(), 2000);
+			CommPort commPort = portIdentifier.open(this.getClass().toString(), 2000); // linking the port to a input stream
 			if (commPort instanceof SerialPort) {
 				SerialPort serialPort = (SerialPort) commPort;
 				serialPort.setSerialPortParams(57600, SerialPort.DATABITS_8, SerialPort.STOPBITS_1,
@@ -67,28 +63,39 @@ public class Reciever {
 				InputStream in = serialPort.getInputStream();
 				OutputStream out = serialPort.getOutputStream();
 				boolean done = false;
+				// until the user says that they are finished
+				// 
 				while (!done) {
-					String[] options = { "ROLL", "STATUS", "DATA"};
+					// brings a gui up that lets the user select the next action
+					String[] options = { "ROLL", "STATUS", "DATA","END"};
 					String selectedValue = (String) JOptionPane.showInputDialog(null, "Choose an option",
 							"Choose next task", JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
 					ArrayList<int[]> values = new ArrayList<int[]>();
 					ArrayList<int[]> statList = new ArrayList<int[]>();
-					int[] state;
+					String[] state;
+					// 
 					switch (selectedValue){
 						case ("ROLL"):
-							ArrayList<int[]> statusList = rollCall(in,out);
-							for(int[] status : statusList) {
+							// ass only one arduino is active at the moment not worrying about that yet
+							ArrayList<String[]> statusList = rollCall(in,out);
+							for(String[] status : statusList) {
 							printStatus(status);
 							}
 						break;
 						case("STATUS"):
+							//get the Status of an Arduino (theres only one)
 							state = getStatus(in,out);
 							printStatus(state);
 						break;
 						case("DATA"):
+							// get the data off the Arduion
 							values = getData(in,out);
 							sendToTransmitter(values);
 						break;	
+						case("END"):
+							done = true;
+							JOptionPane.showMessageDialog(null,"Good Bye");
+						break;
 							
 					}
 						
@@ -111,15 +118,15 @@ public class Reciever {
 		}
 	}
 	
-	
-	public ArrayList<int[]> rollCall(InputStream in, OutputStream out){
+	// calls the get Stattus method to get the values
+	public ArrayList<String[]> rollCall(InputStream in, OutputStream out){
 		try {
 			out.write(ROLL);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		ArrayList<int[]> status = new ArrayList<int[]> ();
+		ArrayList<String[]> status = new ArrayList<String[]> ();
 		status.add(getStatus(in,out));
 		return status;
 	}
@@ -130,9 +137,11 @@ public class Reciever {
 		JSONParser parser = new JSONParser();
 		int[] value = new int[4];
 		try {
+			// takes in the value
 			in.read(b);
 			String s = new String(b).trim();
 			array = (JSONArray) parser.parse(s);
+			// turns it into a JSON String and then decodes it
 			int time = Integer.parseInt(array.get(0).toString());
 			int temp = Integer.parseInt(array.get(1).toString());
 			int tilt = Integer.parseInt(array.get(2).toString());
@@ -155,10 +164,11 @@ public class Reciever {
 
 	public ArrayList<int[]> getData(InputStream in, OutputStream out) {
 		ArrayList<int[]> dataList = new ArrayList<int[]>();
-		
+		// asks the Arduino for the Data
 		try {
 			ByteBuffer bb = ByteBuffer.allocate(4);
 			byte[] write = new byte[5];
+			
 			bb.putInt(adresses[0]);
 			byte[] adress = bb.array();
 			write[0] = UPLD;
@@ -180,6 +190,7 @@ public class Reciever {
 			ByteBuffer wrap = ByteBuffer.wrap(b);
 			int numPieces = wrap.getInt();
 			for (int i = 0; i < numPieces; i++) {
+				//loops through and acks after every DataPiece
 				int[] datapiece = getDataPiece(in, out);
 				out.write(good);
 				dataList.add(datapiece);
@@ -192,12 +203,12 @@ public class Reciever {
 		return null;
 	}
 
-	public int[] getStatus(InputStream in, OutputStream out) {
+	public String[] getStatus(InputStream in, OutputStream out) {
 		// setting up variables
-		int[] state = new int[3];
+		String[] state = new String[3];
 		JSONArray array = new JSONArray();
 		JSONParser parser = new JSONParser();
-		ArrayList<int[]> status = new ArrayList<int[]>();
+		// seting up variables
 		byte[] good = new byte[4];
 		byte[] bad = new byte[4];
 		byte[] b = new byte[4];
@@ -215,15 +226,16 @@ public class Reciever {
 			write[0] = STAT;
 			for(int i = 1;i<5;i++) {
 				write[i]= adress[i-1];
-			}	
+			}
+			// create the message with the request and the adress
 			out.write(write);
 			in.read(new byte[100]);
 			String s = new String(b).trim();
 			array = (JSONArray) parser.parse(s);
 			
-			state[0] = Integer.parseInt(array.get(0).toString());
-			state[1] = Integer.parseInt(array.get(1).toString());
-			state[2] = Integer.parseInt(array.get(2).toString());
+			state[0] = (array.get(0).toString());
+			state[1] = (array.get(1).toString());
+			state[2] = (array.get(2).toString());
 		} catch (IOException e) {
 			
 			e.printStackTrace();
@@ -233,7 +245,7 @@ public class Reciever {
 		}
 		return state;
 	}
-
+	// creates a transmitter and gives it the dataList
 	public void sendToTransmitter(ArrayList<int[]> dataList) {
 			try {
 				Transmitter t = new Transmitter(dataList);
@@ -243,8 +255,8 @@ public class Reciever {
 
 	}
 	
-	
-	public void printStatus(int[] status) {
+	// prints the Status
+	public void printStatus(String[] status) {
 		System.out.println("Status of Data Logger\n");
 		System.out.println("id: "+status[0]+"\n");
 		System.out.println("id: "+status[1]+"\n");

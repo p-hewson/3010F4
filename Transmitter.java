@@ -23,15 +23,19 @@ public class Transmitter {
 	
 
 	public Transmitter(ArrayList<int[]> dataList) throws DataException{
-				ArrayList<Data> listData = new ArrayList<Data>();
-				
+				String place = "jdbc:mysql://localhost/sysc3010";
+				String userName = "Team F4";
+				String password = "sysc3010";
+				ArrayList<Set> listdata = new ArrayList<Set>();
+				listdata = convert(dataList);
+				transmit(listdata,place,userName,password);
 	}
 	
 	// CollectData loops i times and takes in the number of Data Packets that the
 	// Arduino sends and trys to put them into
 	// a data structure
 
-	public ArrayList<Set> convert(ArrayList<int[]> rawList)throws DataException {
+	public ArrayList<Set> convert(ArrayList<int[]> rawList)throws DataException { 
 		ArrayList<Set> dataList = new ArrayList<Set>();
 		for(int i = 0;i<rawList.size();i++) {
 			int time = rawList.get(i)[0];
@@ -49,12 +53,12 @@ public class Transmitter {
 		return dataList;
 	}
 	
-	public void transmit(ArrayList<Set> dataList, String website) {
+	public void transmit(ArrayList<Set> dataList, String place,String username, String password) {
 		try {
+			// not really neaded
 			Class.forName("com.mysql.jdbc.Driver");
-
-			connect = DriverManager.getConnection("jdbc:mysql://" + website);
-
+			// connect to Database
+			connect = DriverManager.getConnection(place,username,password);
 			statement = connect.createStatement();
 			for (Set data : dataList) {
 				double tilt = data.getTilt();

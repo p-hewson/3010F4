@@ -17,7 +17,7 @@ public class Set {
 		convert(time,tilt,temp);
 		convert(time,tilt,temp);
 	}
-
+	// converts the Data to Meaning full data
 	public void convert(long date,int tlt,int temp) {
 		if(date<0||tlt<0||temp<0||tlt>32767||temp>32767) {
 			good = false;
@@ -29,6 +29,7 @@ public class Set {
 		temperature = ((temp/ATDMAX)*(TEMPMAX-TEMPMIN))+TEMPMIN;
 		
 	}
+	// getters no need for setters
 	public int getId() {
 		return id;
 	}
